@@ -1,6 +1,6 @@
 beautifulsoup4==4.6.1
 Flask==1.0.2
-Flask-Cors==3.0.6
+Flask-Cors==3.0.9
 Flask-PyMongo==2.2.0
 Flask-SQLAlchemy==2.3.2
 Flask-WTF==0.14.2
