@@ -1,0 +1,9 @@
+# Extra dependencies for rebuilding the catalog locally:
+#   pip install -r requirements.txt -r requirements-build.txt
+#   python scripts/build_catalog.py     (~5 min: Kaggle bulk dump -> movies.sqlite)
+#   python scripts/build_neighbors.py   (~1-2 hrs: recommendation index)
+pandas>=2.2,<3
+scikit-learn>=1.5,<2
+numpy>=1.26
+faiss-cpu>=1.8
+kagglehub>=0.3

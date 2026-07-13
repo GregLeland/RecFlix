@@ -38,15 +38,11 @@
 								<!-- JQUERY/AJAX SCRIPT FOR SAID AUTOCOMPLETE FORM. CONNECTS TO THE AUTOCOMPLETE ROUTE IN FLASK -->
 								<script>
 									$(function() {
-										$.ajax({
-											url: '{{ url_for("autocomplete") }}'
-												}).done(function (data){
-													$('#movie_autocomplete').autocomplete({
-														source: data,
-														minLength: 2
-													});
-												});
+										$('#movie_autocomplete').autocomplete({
+											source: '{{ url_for("autocomplete") }}',
+											minLength: 2
 										});
+									});
 									</script>
 							</div>
 						</div>

@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 .venv/
 .env
+data/movies.sqlite
+data/*.json.gz
+data/*.log
+data/*.err

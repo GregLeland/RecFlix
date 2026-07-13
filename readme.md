@@ -105,7 +105,9 @@ Future plans include:
 
 ## Running it in 2026
 
-The 2026 revival removed the MySQL dependency entirely (the ClearDB add-on died with Heroku's free tier) — the app now loads `data/movies.csv` at startup. TMDB also re-generated their image paths and stopped putting trailers first in the videos endpoint; both are fixed, and stale image paths can always be refreshed by re-running the dataset build.
+The 2026 revival replaced the original 3,800-movie MySQL setup (the ClearDB add-on died with Heroku's free tier) with the **full TMDB catalog: ~923,000 movies** — every movie on TMDB with a poster, including upcoming releases — in a single SQLite file. It also fixed the TMDB link rot that broke the site: TMDB re-generated all their image paths and stopped putting trailers first in the videos endpoint.
+
+Architecture: all the machine learning now runs offline at build time. `scripts/build_catalog.py` assembles `data/movies.sqlite` from a daily-updated bulk TMDB dump (no API calls), and `scripts/build_neighbors.py` precomputes each movie's top recommendations per dimension (genre/cast/plot: TF-IDF → SVD → faiss). At runtime every page is a few indexed lookups, so the app serves the full million-movie catalog in ~100 MB of RAM. Only movies with 20+ votes can *appear as* recommendations, which keeps the rec rows meaningful; autocomplete is popularity-ranked, so obscure titles only surface on near-exact input.
 
 ### Local setup
 
@@ -114,15 +116,27 @@ python -m venv .venv
 .venv\Scripts\activate          # Windows (use source .venv/bin/activate elsewhere)
 pip install -r requirements.txt
 echo TMDB_API_KEY=<your key> > .env   # gitignored; or set the env var directly
-python scripts/build_dataset.py # only needed to refresh data/movies.csv
-flask run
+flask run                       # needs data/movies.sqlite (see below)
+```
+
+To (re)build the catalog — worth doing every few months for new releases:
+
+```
+pip install -r requirements-build.txt
+python scripts/build_catalog.py     # ~5 min: bulk dump -> movies.sqlite
+python scripts/build_neighbors.py   # ~1-2 hrs: recommendation index
 ```
 
 ### Deploying to Railway
 
-1. Push this repo to GitHub.
-2. On [railway.app](https://railway.app): **New Project → Deploy from GitHub repo** → pick this repo. Railway auto-detects the `Procfile` and `requirements.txt`.
-3. Under the service's **Variables** tab, add `TMDB_API_KEY` with your TMDB key.
-4. Under **Settings → Networking**, click **Generate Domain** to get a public URL.
+The 685 MB `movies.sqlite` is too big for git — it's published as a GitHub Release asset and downloaded to a Railway volume on first boot.
 
-Every push to the default branch redeploys automatically. If posters ever break again (TMDB occasionally re-hashes image paths), run `python scripts/build_dataset.py` locally and push the updated `data/movies.csv`.
+1. On [railway.app](https://railway.app): **New Project → Deploy from GitHub repo** → pick this repo.
+2. Right-click the service → **Attach Volume**, mount path `/data`.
+3. Under the service's **Variables** tab add:
+   - `TMDB_API_KEY` — your TMDB key
+   - `RECFLIX_DB` — `/data/movies.sqlite`
+   - `RECFLIX_DB_URL` — the release asset URL for `movies.sqlite`
+4. Under **Settings → Networking**, click **Generate Domain**.
+
+First boot downloads the catalog to the volume (~2 min); later deploys find it already there and start instantly. Every push to the default branch redeploys automatically. After rebuilding the catalog locally, upload the new `movies.sqlite` to a release and clear the volume (or bump `RECFLIX_DB_URL`) to pick it up.

@@ -1,9 +1,8 @@
+# Runtime dependencies (the ML all happens offline — see requirements-build.txt)
 Flask>=3.0,<4
 Flask-WTF>=1.2,<2
 WTForms>=3.1,<4
 gunicorn>=22.0
-pandas>=2.2,<3
-scikit-learn>=1.5,<2
 rapidfuzz>=3.9,<4
 requests>=2.32,<3
 python-dotenv>=1.0,<2
