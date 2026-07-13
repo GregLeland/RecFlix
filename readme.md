@@ -113,7 +113,7 @@ The 2026 revival removed the MySQL dependency entirely (the ClearDB add-on died 
 python -m venv .venv
 .venv\Scripts\activate          # Windows (use source .venv/bin/activate elsewhere)
 pip install -r requirements.txt
-set TMDB_API_KEY=<your key>     # optional locally; falls back to the committed key
+echo TMDB_API_KEY=<your key> > .env   # gitignored; or set the env var directly
 python scripts/build_dataset.py # only needed to refresh data/movies.csv
 flask run
 ```
