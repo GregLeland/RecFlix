@@ -1,9 +1,9 @@
 from flask import Flask, jsonify, Response, render_template, request, redirect, url_for
 import json
-from flask_wtf import Form
-from wtforms import TextField, BooleanField, PasswordField, TextAreaField, SubmitField, validators
+from flask_wtf import FlaskForm
+from wtforms import StringField, BooleanField, PasswordField, TextAreaField, SubmitField, validators
 from engine import *
-from fuzzywuzzy import process
+from rapidfuzz import process
 import requests
 from api_key import api_key
 
@@ -33,30 +33,22 @@ def index():
         fuzzyresult = highest[0]
         movie_index = movies.loc[movies['title'] == fuzzyresult]
         movieID = str(movie_index['tmdbId'].iloc[0])
-        # IF THE STRING IS AN EXACT MATCH, THERE IS NO NEED TO GO TO THE SEARCH PAGE. IF INPUT IS NOT GREATER THAN 1, DO NOTHING. 
+        # IF THE STRING IS AN EXACT MATCH, THERE IS NO NEED TO GO TO THE SEARCH PAGE. IF INPUT IS NOT GREATER THAN 1, DO NOTHING.
         if form_cont == fuzzyresult:
             return redirect('../rec/' + movieID)
         elif len(form_cont) > 1:
             return redirect('../results/' + form_cont)
         else:
             pass
-    # CREATE A DATAFRAME WITH 8 RANDOM MOVIES FROM OUR DATABASE
-    rando_df = movies.sample(8)
+    # CREATE A DATAFRAME WITH 6 RANDOM MOVIES FROM OUR DATABASE
+    # POSTER PATHS COME STRAIGHT FROM THE DATASET (REFRESHED BY
+    # scripts/build_dataset.py) SO THE HOMEPAGE NEEDS NO LIVE API CALLS
+    rando_df = movies.sample(6)
     title2 = []
     url = []
-    y = 0
-    for x in rando_df.tmdbId:
-        title2.append(x)
-    while y < 6:
-        j = rando_df.tmdbId.iloc[y]
-        tmdb = requests.get(f'https://api.themoviedb.org/3/movie/{j}?api_key={api_key}')
-        data = tmdb.json()
-        if data.get("poster_path") != None:
-            poster_path = data['poster_path']
-            url.append("https://image.tmdb.org/t/p/original/" + poster_path)
-            y += 1
-        else:
-            pass
+    for x in range(6):
+        title2.append(rando_df.tmdbId.iloc[x])
+        url.append("https://image.tmdb.org/t/p/original" + rando_df.poster_path.iloc[x])
     return render_template('index.html', title2=title2, url=url, form=form)
 
 @app.route("/results/<title>", methods=['GET', 'POST'])
@@ -71,7 +63,7 @@ def searchResults(title):
         fuzzyresult = highest[0]
         movie_index = movies.loc[movies['title'] == fuzzyresult]
         movieID = str(movie_index['tmdbId'].iloc[0])
-        # IF THE STRING IS AN EXACT MATCH, THERE IS NO NEED TO GO TO THE SEARCH PAGE. IF INPUT IS NOT GREATER THAN 1, DO NOTHING. 
+        # IF THE STRING IS AN EXACT MATCH, THERE IS NO NEED TO GO TO THE SEARCH PAGE. IF INPUT IS NOT GREATER THAN 1, DO NOTHING.
         if form_cont == fuzzyresult:
             return redirect('../rec/' + movieID)
         elif len(form_cont) > 1:
@@ -86,7 +78,7 @@ def searchResults(title):
     # EXTRACT THE MOVIE TITLES AND MATCH ACCURACY FROM OUR FUZZY SEARCH RESULTS
     for x in range(len(Ratios)):
         resultList.append(Ratios[x][0])
-        matchPer.append(Ratios[x][1])
+        matchPer.append(round(Ratios[x][1]))
     # CREATE A LIST OF LINKS FOR OUR RESULTS
     movieID = []
     movieURL = []
@@ -97,13 +89,11 @@ def searchResults(title):
         grabID = str(findFilm['tmdbId'].iloc[0])
         movieURL.append("../rec/" + grabID)
         # GET THE DESCRIPTIONS AND POSTERS FOR THE MOVIE RESULTS
-        resultPosters.append("https://image.tmdb.org/t/p/original/" + findFilm['poster_path'].iloc[0])
+        resultPosters.append("https://image.tmdb.org/t/p/original" + findFilm['poster_path'].iloc[0])
         tmdb_desc = requests.get(f'https://api.themoviedb.org/3/movie/{grabID}?api_key={api_key}')
         desc_data = tmdb_desc.json()
-        if desc_data.get("overview") != None:
-            resultDescription.append(desc_data['overview'])
-        else:
-            pass   
+        # ALWAYS APPEND SO DESCRIPTIONS STAY LINED UP WITH THEIR POSTERS
+        resultDescription.append(desc_data.get('overview') or '')
     return render_template('results.html', title=title, resultString=resultString, resultList=resultList, movieURL=movieURL, matchPer=matchPer, resultPosters=resultPosters, resultDescription=resultDescription, form=form)
 
 
@@ -116,19 +106,19 @@ def movie_bot_final(title):
     # GET THE DESCRIPTION OF THE MOVIE THAT WAS PASSED IN
     tmdb_desc = requests.get(f'https://api.themoviedb.org/3/movie/{title}?api_key={api_key}')
     desc_data = tmdb_desc.json()
-    if desc_data.get("overview") != None:
-        description = desc_data['overview']
-    else:
-        pass
+    description = desc_data.get('overview') or ''
     # GET THE YOUTUBE TRAILER LINK FOR THE ID THAT WAS PASSED IN
+    # TMDB NO LONGER PUTS THE TRAILER FIRST IN THE VIDEOS LIST (results[0] IS
+    # OFTEN A CLIP OR FEATURETTE NOW), SO FILTER FOR AN ACTUAL YOUTUBE TRAILER
     tmdb_trailer = requests.get(f'https://api.themoviedb.org/3/movie/{title}/videos?api_key={api_key}')
-    trailer_response = tmdb_trailer.json()['results']
-    if not trailer_response:
+    trailer_response = tmdb_trailer.json().get('results', [])
+    yt_videos = [v for v in trailer_response if v.get('site') == 'YouTube' and v.get('key')]
+    yt_trailers = [v for v in yt_videos if v.get('type') == 'Trailer'] or yt_videos
+    if not yt_trailers:
         trailer_url = 'None'
     else:
-        trailer_data = trailer_response[0].get('key')
-        trailer_path = trailer_data
-        trailer_url = (f'https://www.youtube.com/watch?v={trailer_path}')
+        pick = next((v for v in yt_trailers if v.get('official')), yt_trailers[0])
+        trailer_url = (f'https://www.youtube.com/watch?v={pick["key"]}')
     # FORM SUBMISSION
     if request.method == 'POST':
         form_cont = form.autocomp.data
@@ -139,7 +129,7 @@ def movie_bot_final(title):
         fuzzyresult = highest[0]
         movie_index = movies.loc[movies['title'] == fuzzyresult]
         movieID = str(movie_index['tmdbId'].iloc[0])
-        # IF THE STRING IS AN EXACT MATCH, THERE IS NO NEED TO GO TO THE SEARCH PAGE. IF INPUT IS NOT GREATER THAN 1, DO NOTHING. 
+        # IF THE STRING IS AN EXACT MATCH, THERE IS NO NEED TO GO TO THE SEARCH PAGE. IF INPUT IS NOT GREATER THAN 1, DO NOTHING.
         if form_cont == fuzzyresult:
             return redirect('../rec/' + movieID)
         elif len(form_cont) > 1:
@@ -152,28 +142,21 @@ def movie_bot_final(title):
     # -----------------------------
     # ML BASED ON THE MOVIE GENRE
     # -----------------------------
-    genre_sim_scores = list(enumerate(genre_cosine_sim[idx]))
-    genre_sim_scores = sorted(genre_sim_scores, key=lambda x: x[1], reverse=True)
-    genre_sim_scores = genre_sim_scores[1:21]
-    genre_movie_indices = [i[0] for i in genre_sim_scores]
+    # SIMILARITY IS COMPUTED PER-REQUEST FROM THE SPARSE TF-IDF MATRICES (SEE
+    # engine.top_similar) INSTEAD OF PRECOMPUTED NxN COSINE MATRICES
+    genre_movie_indices = top_similar(genre_matrix, idx)
     # RETURNS THE 12 MOST SIMILAR MOVIES BY GENRE
     genre_df = titles.iloc[genre_movie_indices].head(13).to_frame()
     # ----------------------------
     # ML BASED ON THE MOVIE CAST
     # ----------------------------
-    cast_sim_scores = list(enumerate(cast_cosine_sim[idx]))
-    cast_sim_scores = sorted(cast_sim_scores, key=lambda x: x[1], reverse=True)
-    cast_sim_scores = cast_sim_scores[1:21]
-    cast_movie_indices = [i[0] for i in cast_sim_scores]
+    cast_movie_indices = top_similar(cast_matrix, idx)
     # RETURNS THE 12 MOST SIMILAR MOVIES BY CAST
     cast_df = titles.iloc[cast_movie_indices].head(13).to_frame()
     # -----------------------------------
     # ML BASED ON THE MOVIE DESCRIPTION
     # -----------------------------------
-    desc_sim_scores = list(enumerate(desc_cosine_sim[idx]))
-    desc_sim_scores = sorted(desc_sim_scores, key=lambda x: x[1], reverse=True)
-    desc_sim_scores = desc_sim_scores[1:21]
-    desc_movie_indices = [i[0] for i in desc_sim_scores]
+    desc_movie_indices = top_similar(desc_matrix, idx)
     # RETURNS THE 12 MOST SIMILAR MOVIES BY DESCRIPTION
     desc_df = titles.iloc[desc_movie_indices].head(13).to_frame()
     # ------------------------------------------------------------------
@@ -195,25 +178,23 @@ def movie_bot_final(title):
     moviename = []
     url1 = []
     movCastin = titleloc['cast'].iloc[0]
-    movCastOut = movCastin.replace("'","").strip("][").split(', ')
-    topCast = []
-    for x in range(3):
-        topCast.append(movCastOut[x])
+    movCastOut = movCastin.replace("'","").replace('"','').strip("][").split(', ')
+    topCast = (movCastOut + ['', '', ''])[:3]
     # PULLS THE IMAGE URL FROM THE MOVIES DF AND APPENDS THEM TO THE URL PREFIX FOR THE MOVIE POSTERS
     # PASSES THE MOVIE POSTER URL INTO THE RECS.HTML PAGE
-    titleurl = str("https://image.tmdb.org/t/p/original/" + titleloc['poster_path'].iloc[0])
-    backdropPath = str(desc_data['backdrop_path'])
-    bgurl = ("https://image.tmdb.org/t/p/original/" + backdropPath)
-    runtime = str(desc_data['runtime'])
+    titleurl = str("https://image.tmdb.org/t/p/original" + titleloc['poster_path'].iloc[0])
+    backdropPath = desc_data.get('backdrop_path') or ''
+    bgurl = ("https://image.tmdb.org/t/p/original" + backdropPath) if backdropPath else ''
+    runtime = str(desc_data.get('runtime') or '')
     for film in temp_df.tmdbId:
         moviename.append(film)
     for poster in temp_df.poster_path:
-        url1.append("http://image.tmdb.org/t/p/w185" + str(poster))
+        url1.append("https://image.tmdb.org/t/p/w185" + str(poster))
     return render_template('recs.html', moviename=moviename, url1=url1, topCast=topCast, movieTitle=movieTitle, titleurl=titleurl, bgurl=bgurl, form=form, description=description, runtime=runtime, trailer_url=trailer_url)
 
 # SETS UP THE FORM WITH THE AUTOCOMP TEXT FIELD AND SUBMISSION BUTTON
-class SearchForm(Form):
-    autocomp = TextField('Enter Movie Title', id='movie_autocomplete')
+class SearchForm(FlaskForm):
+    autocomp = StringField('Enter Movie Title', id='movie_autocomplete')
     submit = SubmitField('Search')
 
 # THE BRAINS OF THE AUTOCOMPLETE. PULLS THE MOVIES FROM THE LIST VARIABLE AND RETURNS A JSON THAT CAN BE PARSED BY THE JQUERY ON THE HTML PAGE

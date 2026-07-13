@@ -1,6 +1,6 @@
 <center> <h1>"RecFlix" - A Movie Recommendation System</h1> </center>
 
-Project URL: http://gregrecflix.herokuapp.com
+Project URL: ~~http://gregrecflix.herokuapp.com~~ (Heroku's free tier was discontinued — see [Running it in 2026](#running-it-in-2026) below)
 
 ![Image of RecFlix](https://i.imgur.com/UgAF0em.jpg)
 
@@ -102,3 +102,27 @@ Future plans include:
 <ul>
   <li>Modify the app to store user data and create user accounts where users will be able to rate a film. This information will then be clustered with the existing ratings data, and recommendations will be generated for each individual user. In this system, the ML algorithm will be able to learn and generate highly accurate suggestions based on user clustering.</li>
 </ul>
+
+## Running it in 2026
+
+The 2026 revival removed the MySQL dependency entirely (the ClearDB add-on died with Heroku's free tier) — the app now loads `data/movies.csv` at startup. TMDB also re-generated their image paths and stopped putting trailers first in the videos endpoint; both are fixed, and stale image paths can always be refreshed by re-running the dataset build.
+
+### Local setup
+
+```
+python -m venv .venv
+.venv\Scripts\activate          # Windows (use source .venv/bin/activate elsewhere)
+pip install -r requirements.txt
+set TMDB_API_KEY=<your key>     # optional locally; falls back to the committed key
+python scripts/build_dataset.py # only needed to refresh data/movies.csv
+flask run
+```
+
+### Deploying to Railway
+
+1. Push this repo to GitHub.
+2. On [railway.app](https://railway.app): **New Project → Deploy from GitHub repo** → pick this repo. Railway auto-detects the `Procfile` and `requirements.txt`.
+3. Under the service's **Variables** tab, add `TMDB_API_KEY` with your TMDB key.
+4. Under **Settings → Networking**, click **Generate Domain** to get a public URL.
+
+Every push to the default branch redeploys automatically. If posters ever break again (TMDB occasionally re-hashes image paths), run `python scripts/build_dataset.py` locally and push the updated `data/movies.csv`.
