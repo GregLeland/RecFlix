@@ -1,7 +1,30 @@
-body { 
+html {
+    height: 100%;
+}
+
+body {
     background: black !important;
     color: #c0c0c0 !important;
-} 
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+}
+
+body > .container-fluid {
+    width: 100%;
+    margin: auto; /* vertically centers the page content in the flex body */
+}
+
+body.page-home {
+    background: #000 url('../img/bg1.jpg') no-repeat center center fixed !important;
+    background-size: cover !important;
+}
+
+body.page-home .jumbotron {
+    background: transparent !important;
+    margin-bottom: 0;
+}
 
 .hoverborder {
     box-shadow: 0 10px 10px 0 rgba(0, 0, 0, 0.527), 0 10px 20px 0 rgba(0, 0, 0, 0.295);
