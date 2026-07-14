@@ -10,10 +10,11 @@ import threading
 
 from rapidfuzz import process as fuzz_process
 
-DB_PATH = os.environ.get(
-    "RECFLIX_DB",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "movies.sqlite"),
-)
+from fetch_db import ensure_db
+
+# Downloads the catalog if it isn't on disk yet (fresh Railway volume) and
+# fails with a clear message when the volume/env vars are misconfigured.
+DB_PATH = ensure_db()
 
 _local = threading.local()
 

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "deploy": {
+    "startCommand": "python fetch_db.py && gunicorn app:app --workers 1 --threads 4 --timeout 120",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 5
+  }
+}
