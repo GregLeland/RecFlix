@@ -96,11 +96,13 @@ def movie_bot_final(tmdb_id):
     topCast += [''] * (3 - len(topCast))
     titleurl = IMG_ORIGINAL + movie['poster_path']
 
-    # LIVE TMDB CALLS FOR WHAT THE CATALOG DOESN'T STORE: the backdrop image
-    # and the trailer. TMDB no longer orders trailers first in /videos, so
-    # filter for an actual YouTube trailer.
+    # LIVE TMDB CALLS FOR WHAT THE CATALOG DOESN'T STORE: the backdrop image,
+    # the trailer, and cast photos/characters. TMDB no longer orders trailers
+    # first in /videos, so filter for an actual YouTube trailer.
     bgurl = ''
     trailer_url = 'None'
+    director = movie['director'] or ''
+    full_cast = []
     try:
         details = requests.get(
             f'https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={api_key}',
@@ -115,8 +117,22 @@ def movie_bot_final(tmdb_id):
         if trailers:
             pick = next((v for v in trailers if v.get('official')), trailers[0])
             trailer_url = f'https://www.youtube.com/watch?v={pick["key"]}'
+        credits = requests.get(
+            f'https://api.themoviedb.org/3/movie/{tmdb_id}/credits?api_key={api_key}',
+            timeout=10).json()
+        full_cast = [{
+            'name': c.get('name', ''),
+            'character': c.get('character', ''),
+            'photo': IMG_THUMB + c['profile_path'] if c.get('profile_path') else '',
+        } for c in credits.get('cast', [])]
+        directors = [c['name'] for c in credits.get('crew', []) if c.get('job') == 'Director']
+        if directors:
+            director = ', '.join(directors)
     except requests.RequestException:
         pass  # page still renders from the catalog if TMDB is unreachable
+    if not full_cast:  # TMDB unreachable: names from the catalog, no photos
+        full_cast = [{'name': n.strip(), 'character': '', 'photo': ''}
+                     for n in (movie['cast'] or '').split(',') if n.strip()]
 
     # PRECOMPUTED RECOMMENDATIONS: genre row, cast row, plot row (12 each)
     rec_rows = engine.recommendations(tmdb_id)
@@ -132,7 +148,8 @@ def movie_bot_final(tmdb_id):
     return render_template('recs.html', moviename=moviename, url1=url1,
                            topCast=topCast, movieTitle=movieTitle, titleurl=titleurl,
                            bgurl=bgurl, form=form, description=description,
-                           runtime=runtime, trailer_url=trailer_url)
+                           runtime=runtime, trailer_url=trailer_url,
+                           director=director, full_cast=full_cast)
 
 
 # SERVER-SIDE AUTOCOMPLETE: jQuery UI calls this with ?term= on each

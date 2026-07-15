@@ -53,6 +53,7 @@
 							<div class='overview' style="text-align: left;">
 							<h4>{{ movieTitle }}</h4>
 							<p>{{ description }}</p>
+							<h6 style="color: #fff;">Directed by: <span style="color: #c0c0c0 !important;">{{ director }}</span></h6>
 							<h6 style="color: #fff;">Top Billed Cast: <span style="color: #c0c0c0 !important;">{{ topCast[0] }}, {{ topCast[1] }}, {{ topCast[2] }}</span></h6>
 							<h6 style="color: #fff;">Runtime: <span style="color: #c0c0c0 !important;">{{ runtime }} minutes</span></h6>
 							{% if trailer_url == 'None' %}
@@ -64,6 +65,23 @@
 						</div>
 							</div>
 					</div>
+					<!-- FULL CAST DROPDOWN - NATIVE details/summary, NO JS NEEDED -->
+					<details class="cast-toggle">
+						<summary>Full Cast List &#9662;</summary>
+						<div class="cast-grid">
+							{% for person in full_cast %}
+							<div class="cast-card">
+								{% if person.photo %}
+								<img src="{{ person.photo }}" alt="{{ person.name }}" loading="lazy">
+								{% else %}
+								<div class="no-photo">&#127916;</div>
+								{% endif %}
+								<div class="actor">{{ person.name }}</div>
+								<div class="character">{{ person.character }}</div>
+							</div>
+							{% endfor %}
+						</div>
+					</details>
 				</div>
 				<div class="jumbotron" style="text-align: center; background: #010101; padding-top: 10px !important;">
 					<div class="row"><h4 style="margin: 0;">Based on the genre of your selection, here are some movies that you might find interesting:</h3></div>
