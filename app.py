@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, Response, render_template, request, redirect, url_for
 import json
+import os
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 import requests
@@ -9,6 +10,16 @@ from api_key import api_key
 
 app = Flask(__name__)
 app.static_folder = 'static'
+
+# CACHE-BUSTER: style.css mtime baked into its URL so browsers and the
+# Cloudflare edge cache always pick up CSS changes on deploy.
+_CSS_V = int(os.path.getmtime(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'css', 'style.css')))
+
+
+@app.context_processor
+def inject_css_version():
+    return {'css_v': _CSS_V}
 
 # CREATE A GENERIC SECRET KEY BECAUSE THE FORM REQUIRES IT FOR VALIDATION AND WE WON'T BE NEEDING ANYTHING SECURE FOR OUR PURPOSES
 app.config.update(dict(
@@ -124,7 +135,7 @@ def movie_bot_final(tmdb_id):
             'name': c.get('name', ''),
             'character': c.get('character', ''),
             'photo': IMG_THUMB + c['profile_path'] if c.get('profile_path') else '',
-        } for c in credits.get('cast', [])]
+        } for c in credits.get('cast', [])[:36]]  # ~2-3 rows of headshots
         directors = [c['name'] for c in credits.get('crew', []) if c.get('job') == 'Director']
         if directors:
             director = ', '.join(directors)
@@ -132,7 +143,7 @@ def movie_bot_final(tmdb_id):
         pass  # page still renders from the catalog if TMDB is unreachable
     if not full_cast:  # TMDB unreachable: names from the catalog, no photos
         full_cast = [{'name': n.strip(), 'character': '', 'photo': ''}
-                     for n in (movie['cast'] or '').split(',') if n.strip()]
+                     for n in (movie['cast'] or '').split(',') if n.strip()][:36]
 
     # PRECOMPUTED RECOMMENDATIONS: genre row, cast row, plot row (12 each)
     rec_rows = engine.recommendations(tmdb_id)
